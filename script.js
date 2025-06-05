@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     video.play();
     const gridContainer = document.getElementById('gridContainer');
     const shuffleBtn = document.getElementById('shuffleBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const hoverTrigger = document.getElementById('hoverTrigger');
     const gridSize = { rows: 3, cols: 5 };
     const canvases = [];
     const contexts = [];
@@ -147,6 +149,75 @@ document.addEventListener('DOMContentLoaded', () => {
     shuffleBtn.addEventListener('click', () => {
         tileMapping = shuffleArray(tileMapping);
     });
+
+    // Fullscreen functionality
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable fullscreen: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    // Update fullscreen button text when fullscreen state changes
+    document.addEventListener('fullscreenchange', () => {
+        fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+        
+        // Add or remove fullscreen mode class
+        if (document.fullscreenElement) {
+            document.body.classList.add('fullscreen-mode');
+            setupFullscreenHover();
+        } else {
+            document.body.classList.remove('fullscreen-mode', 'show-controls');
+            cleanupFullscreenHover();
+        }
+    });
+
+    // Fullscreen hover functionality
+    let hoverTimeout;
+    
+    function setupFullscreenHover() {
+        // Show controls when hovering over the top area
+        hoverTrigger.addEventListener('mouseenter', showControls);
+        hoverTrigger.addEventListener('mouseleave', hideControlsWithDelay);
+        
+        // Also show controls when hovering over the button container itself
+        const buttonContainer = document.querySelector('.button-container');
+        buttonContainer.addEventListener('mouseenter', showControls);
+        buttonContainer.addEventListener('mouseleave', hideControlsWithDelay);
+    }
+    
+    function cleanupFullscreenHover() {
+        // Remove event listeners when exiting fullscreen
+        hoverTrigger.removeEventListener('mouseenter', showControls);
+        hoverTrigger.removeEventListener('mouseleave', hideControlsWithDelay);
+        
+        const buttonContainer = document.querySelector('.button-container');
+        buttonContainer.removeEventListener('mouseenter', showControls);
+        buttonContainer.removeEventListener('mouseleave', hideControlsWithDelay);
+        
+        // Clear any pending timeouts
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+        }
+    }
+    
+    function showControls() {
+        // Clear any pending hide timeout
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+        }
+        document.body.classList.add('show-controls');
+    }
+    
+    function hideControlsWithDelay() {
+        // Hide controls after a short delay
+        hoverTimeout = setTimeout(() => {
+            document.body.classList.remove('show-controls');
+        }, 1000); // 1 second delay before hiding
+    }
 
     // Wait for video to be ready
     video.addEventListener('loadedmetadata', () => {
