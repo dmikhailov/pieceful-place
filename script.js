@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Each index represents a canvas, value represents which grid position it displays
     let tileMapping = [];
     
+    // Track whether the puzzle has been shuffled (to enable solved state detection)
+    let hasBeenShuffled = false;
+    
     // Drag and drop state
     let dragState = {
         isDragging: false,
@@ -135,6 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const temp = tileMapping[index1];
         tileMapping[index1] = tileMapping[index2];
         tileMapping[index2] = temp;
+        
+        // Check if puzzle is solved after swap
+        checkPuzzleSolved();
     }
 
     // Shuffle function
@@ -147,9 +153,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return newArray;
     }
 
+    // Function to check if puzzle is solved
+    function checkPuzzleSolved() {
+        const isSolved = tileMapping.every((value, index) => value === index);
+        
+        // Only apply solved state if the puzzle has been shuffled first
+        if (hasBeenShuffled && isSolved) {
+            gridContainer.classList.add('solved');
+        } else {
+            gridContainer.classList.remove('solved');
+        }
+        
+        return isSolved;
+    }
+
     // Shuffle button event listener
     shuffleBtn.addEventListener('click', () => {
         tileMapping = shuffleArray(tileMapping);
+        hasBeenShuffled = true; // Mark that puzzle has been shuffled
+        // Check puzzle state after shuffle
+        checkPuzzleSolved();
     });
 
     // Fullscreen functionality
@@ -292,6 +315,9 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.width = srcWidth;
             canvas.height = srcHeight;
         });
+
+        // Don't check initial puzzle state since it starts solved
+        // checkPuzzleSolved();
 
         // Start animation
         requestAnimationFrame(draw);
