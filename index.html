@@ -25,7 +25,7 @@
         .canvas-container {
             position: relative;
             width: 100%;
-            padding-bottom: 75%; /* 4:3 aspect ratio */
+            height: 100%;
         }
         canvas {
             position: absolute;
@@ -49,15 +49,12 @@
         }
 
         .button-container {
-            display: flex;
-            width: 100%;
             background-color: rgba(0, 0, 0, 0.7);
-            justify-content: center;
-            align-items: center;
             padding: 10px;
             position: absolute;
             bottom: 0;
-            left: 0;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
@@ -65,14 +62,14 @@
         /* Hide button container in fullscreen mode by default */
         .fullscreen-mode .button-container {
             opacity: 0;
-            transform: translateY(100%);
+            transform: translateX(-50%) translateY(100%);
             pointer-events: none;
         }
 
         /* Show button container in fullscreen mode when hovering bottom area */
         .fullscreen-mode.show-controls .button-container {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(-50%) translateY(0);
             pointer-events: auto;
         }
 

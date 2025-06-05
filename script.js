@@ -237,23 +237,56 @@ document.addEventListener('DOMContentLoaded', () => {
     function draw() {
         if (video.paused || video.ended) return;
 
-        const srcWidth = video.videoWidth / gridSize.cols;
-        const srcHeight = video.videoHeight / gridSize.rows;
+        // Get current page dimensions
+        const pageWidth = window.innerWidth;
+        const pageHeight = window.innerHeight;
+        const pageAspectRatio = pageWidth / pageHeight;
+        
+        // Get video dimensions
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        const videoAspectRatio = videoWidth / videoHeight;
+        
+        // Calculate which part of the video is visible for this page resolution
+        let visibleVideoWidth, visibleVideoHeight, videoOffsetX, videoOffsetY;
+        
+        if (videoAspectRatio > pageAspectRatio) {
+            // Video is wider than page - crop the sides of the video
+            visibleVideoHeight = videoHeight;
+            visibleVideoWidth = videoHeight * pageAspectRatio;
+            videoOffsetX = (videoWidth - visibleVideoWidth) / 2;
+            videoOffsetY = 0;
+        } else {
+            // Video is taller than page - crop the top/bottom of the video
+            visibleVideoWidth = videoWidth;
+            visibleVideoHeight = videoWidth / pageAspectRatio;
+            videoOffsetX = 0;
+            videoOffsetY = (videoHeight - visibleVideoHeight) / 2;
+        }
+        
+        // Calculate tile dimensions from the visible portion
+        const tileWidth = visibleVideoWidth / gridSize.cols;
+        const tileHeight = visibleVideoHeight / gridSize.rows;
 
         // Draw each canvas based on the tile mapping
         for (let canvasIndex = 0; canvasIndex < canvases.length; canvasIndex++) {
             const ctx = contexts[canvasIndex];
+            const canvas = canvases[canvasIndex];
             const gridPosition = tileMapping[canvasIndex];
             
             // Calculate row and column from grid position
             const row = Math.floor(gridPosition / gridSize.cols);
             const col = gridPosition % gridSize.cols;
             
-            // Draw the corresponding portion of the video
+            // Calculate source coordinates within the visible video area
+            const srcX = videoOffsetX + col * tileWidth;
+            const srcY = videoOffsetY + row * tileHeight;
+            
+            // Draw the tile from the visible portion of the video
             ctx.drawImage(
                 video,
-                col * srcWidth, row * srcHeight, srcWidth, srcHeight, // Source rectangle
-                0, 0, canvases[canvasIndex].width, canvases[canvasIndex].height  // Destination rectangle
+                srcX, srcY, tileWidth, tileHeight, // Source rectangle from visible area
+                0, 0, canvas.width, canvas.height  // Fill entire canvas
             );
         }
 
