@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridContainer = document.getElementById('gridContainer');
     const shuffleBtn = document.getElementById('shuffleBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const audioBtn = document.getElementById('audioBtn');
+    const shoreAudio = document.getElementById('shoreAudio');
     const hoverTrigger = document.getElementById('hoverTrigger');
     const gridSize = { rows: 3, cols: 5 };
     const canvases = [];
@@ -169,9 +171,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.fullscreenElement) {
             document.body.classList.add('fullscreen-mode');
             setupFullscreenHover();
+            // Auto-enable audio when entering fullscreen
+            if (audioMuted) {
+                toggleAudio();
+            }
         } else {
             document.body.classList.remove('fullscreen-mode', 'show-controls');
             cleanupFullscreenHover();
+            // Auto-disable audio when exiting fullscreen
+            if (!audioMuted) {
+                toggleAudio();
+            }
+        }
+    });
+
+    // Shore audio control functionality
+    let audioMuted = true; // Start muted by default
+    let audioVolume = 0.3; // Default volume
+    let audioStarted = false;
+    
+    // Set initial volume and muted state
+    shoreAudio.volume = audioVolume;
+    shoreAudio.muted = true;
+    
+    // Function to start audio (needed for browser autoplay policy)
+    function startAudio() {
+        if (!audioStarted) {
+            shoreAudio.play().catch(err => {
+                console.log('Audio autoplay prevented:', err);
+            });
+            audioStarted = true;
+        }
+    }
+    
+    // Start audio on first user interaction
+    document.addEventListener('click', startAudio, { once: true });
+    document.addEventListener('keydown', startAudio, { once: true });
+    document.addEventListener('touchstart', startAudio, { once: true });
+    
+    // Function to toggle audio state
+    function toggleAudio() {
+        if (audioMuted) {
+            // Unmute
+            startAudio(); // Ensure audio is started
+            shoreAudio.volume = audioVolume;
+            shoreAudio.muted = false;
+            audioBtn.innerHTML = '🔊 Shore Audio';
+            audioBtn.style.backgroundColor = '#17a2b8';
+            audioMuted = false;
+        } else {
+            // Mute
+            shoreAudio.muted = true;
+            audioBtn.innerHTML = '🔇 Shore Audio';
+            audioBtn.style.backgroundColor = '#6c757d';
+            audioMuted = true;
+        }
+    }
+    
+    audioBtn.addEventListener('click', toggleAudio);
+
+    // Keyboard shortcut for audio toggle (spacebar)
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !e.target.matches('button, input, textarea')) {
+            e.preventDefault();
+            audioBtn.click();
         }
     });
 
