@@ -43,6 +43,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return { rows, cols };
     }
     
+    // Function to set canvas sizes to match display dimensions for optimal performance
+    function setCanvasSizes() {
+        if (canvases.length === 0) return;
+        
+        // Get the actual display size of one canvas container
+        const sampleContainer = canvases[0].parentElement;
+        const rect = sampleContainer.getBoundingClientRect();
+        
+        // Set all canvases to this display size for optimal performance
+        const displayWidth = Math.round(rect.width);
+        const displayHeight = Math.round(rect.height);
+        
+        canvases.forEach(canvas => {
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+        });
+        
+        console.log(`Canvas internal size set to ${displayWidth}x${displayHeight} (display size)`);
+    }
+    
     // Function to recreate the entire grid with new dimensions
     function recreateGrid() {
         // Clear existing canvases
@@ -77,15 +97,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setupDragAndDrop(canvas, i);
         }
         
-        // If video is ready, set canvas sizes
+        // If video is ready, set canvas sizes to match display size for performance
         if (video.videoWidth && video.videoHeight) {
-            const srcWidth = video.videoWidth / gridSize.cols;
-            const srcHeight = video.videoHeight / gridSize.rows;
-            
-            canvases.forEach(canvas => {
-                canvas.width = srcWidth;
-                canvas.height = srcHeight;
-            });
+            setCanvasSizes();
         }
         
         // Remove solved state when recreating grid
@@ -142,11 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Debounce resize events to avoid excessive recalculations
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            const newGridSize = calculateOptimalGridSize();
-            // Only recreate grid if dimensions actually changed
-            if (newGridSize.rows !== gridSize.rows || newGridSize.cols !== gridSize.cols) {
-                recreateGrid();
-            }
+                            const newGridSize = calculateOptimalGridSize();
+                // Only recreate grid if dimensions actually changed
+                if (newGridSize.rows !== gridSize.rows || newGridSize.cols !== gridSize.cols) {
+                    recreateGrid();
+                } else {
+                    // Grid size didn't change, but canvas display sizes might need updating
+                    setCanvasSizes();
+                }
         }, 250);
     });
 
@@ -419,6 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newGridSize = calculateOptimalGridSize();
                 if (newGridSize.rows !== gridSize.rows || newGridSize.cols !== gridSize.cols) {
                     recreateGrid();
+                } else {
+                    // Update canvas sizes for orientation change
+                    setCanvasSizes();
                 }
             }, 500); // Delay to allow orientation change to complete
         }
@@ -675,20 +695,14 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateDimensions();
         }
         
-        // Set canvas sizes
-        const srcWidth = video.videoWidth / gridSize.cols;
-        const srcHeight = video.videoHeight / gridSize.rows;
-        
-        canvases.forEach(canvas => {
-            canvas.width = srcWidth;
-            canvas.height = srcHeight;
-        });
+        // Set canvas sizes to match display size for performance
+        setCanvasSizes();
 
         // Don't check initial puzzle state since it starts solved
         // checkPuzzleSolved();
 
         // Start animation
-        requestAnimationFrame(draw);
+        video.requestVideoFrameCallback(draw);
     });
 
     // Track previous dimensions to detect changes
@@ -709,6 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 prevWindowWidth = newWidth;
                 prevWindowHeight = newHeight;
                 calculateDimensions();
+                // Update canvas sizes when window resizes
+                setCanvasSizes();
             }
         }, 250);
     });
@@ -758,7 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function draw() {
         if (video.paused || video.ended) return;
 
-        // const startTime = performance.now();
+        const startTime = performance.now();
 
         // Draw each canvas based on the tile mapping
         for (let canvasIndex = 0; canvasIndex < canvases.length; canvasIndex++) {
@@ -775,15 +791,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const srcY = videoOffsetY + row * tileHeight;
             
             // Draw the tile from the visible portion of the video
+            // debugger;
             ctx.drawImage(
                 video,
                 srcX, srcY, tileWidth, tileHeight, // Source rectangle from visible area
                 0, 0, canvas.width, canvas.height  // Fill entire canvas
             );
         }
-        // const endTime = performance.now();
-        // console.log(`${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}.${new Date().getMilliseconds().toString().padStart(3, '0')}: Dimension calculation block took: ${endTime - startTime} milliseconds`);
+        const endTime = performance.now();
+        console.log(`${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}.${new Date().getMilliseconds().toString().padStart(3, '0')}: Dimension calculation block took: ${endTime - startTime} milliseconds`);
 
-        requestAnimationFrame(draw);
+        video.requestVideoFrameCallback(draw);
     }
 }); 
