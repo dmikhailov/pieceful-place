@@ -310,9 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isInFullscreen) {
             document.body.classList.add('fullscreen-mode');
             setupFullscreenHover();
-            // Auto-enable audio when entering fullscreen
+            // Auto-enable audio when entering fullscreen (with tablet support)
             if (audioMuted) {
-                toggleAudio();
+                initializeAudioContext();
+                setTimeout(() => toggleAudio(), 100); // Small delay for tablet compatibility
             }
         } else {
             document.body.classList.remove('fullscreen-mode', 'show-controls');
@@ -341,7 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     fullscreenBtn.textContent = 'Exit Fullscreen';
                     optimizeForAndroid();
                     if (audioMuted) {
-                        toggleAudio();
+                        initializeAudioContext();
+                        setTimeout(() => toggleAudio(), 100); // Small delay for Android tablet compatibility
                     }
                 }
             });
@@ -418,38 +420,139 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Shore audio control functionality
     let audioMuted = true; // Start muted by default
-    let audioVolume = 0.3; // Default volume
+    let audioVolume = 0.5; // Increased volume for tablets
     let audioStarted = false;
+    let audioContext = null;
     
     // Set initial volume and muted state
     shoreAudio.volume = audioVolume;
     shoreAudio.muted = true;
     
-    // Function to start audio (needed for browser autoplay policy)
-    function startAudio() {
-        if (!audioStarted) {
-            shoreAudio.play().catch(err => {
-                console.log('Audio autoplay prevented:', err);
-            });
-            audioStarted = true;
+    // Function to initialize audio context for better tablet support
+    function initializeAudioContext() {
+        try {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Resume audio context if suspended (common on mobile)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('Audio context resumed');
+                }).catch(err => {
+                    console.log('Failed to resume audio context:', err);
+                });
+            }
+        } catch (err) {
+            console.log('Audio context initialization failed:', err);
         }
     }
     
-    // Start audio on first user interaction
-    document.addEventListener('click', startAudio, { once: true });
-    document.addEventListener('keydown', startAudio, { once: true });
-    document.addEventListener('touchstart', startAudio, { once: true });
+    // Enhanced function to start audio (needed for browser autoplay policy)
+    function startAudio() {
+        if (!audioStarted) {
+            initializeAudioContext();
+            
+            // Try multiple approaches for tablet compatibility
+            const playPromise = shoreAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('Audio playback started successfully');
+                    audioStarted = true;
+                }).catch(err => {
+                    console.log('Audio autoplay prevented, will try on next user interaction:', err);
+                    // Don't mark as started if it failed
+                });
+            } else {
+                // Fallback for older browsers
+                audioStarted = true;
+            }
+        }
+    }
     
-    // Function to toggle audio state
+    // Enhanced user interaction handling for tablets
+    function handleUserInteraction() {
+        initializeAudioContext();
+        startAudio();
+    }
+    
+    // Start audio on various user interactions (tablets may need different events)
+    document.addEventListener('click', handleUserInteraction, { once: true });
+    document.addEventListener('keydown', handleUserInteraction, { once: true });
+    document.addEventListener('touchstart', handleUserInteraction, { once: true });
+    document.addEventListener('touchend', handleUserInteraction, { once: true });
+    
+    // Also try to initialize on page load for tablets
+    window.addEventListener('load', () => {
+        // Try to prepare audio without playing
+        shoreAudio.load();
+        
+        // Detect if we're on a tablet and pre-initialize some audio features
+        if (isTabletDevice()) {
+            console.log('Tablet detected, optimizing audio...');
+            // Preload audio for better tablet performance
+            shoreAudio.preload = 'auto';
+            // Set additional tablet-friendly audio properties
+            shoreAudio.volume = audioVolume;
+        }
+    });
+    
+    // Function to detect tablet devices
+    function isTabletDevice() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isAndroid = userAgent.indexOf('android') > -1;
+        const isIPad = userAgent.indexOf('ipad') > -1;
+        const isTablet = /tablet|ipad|playbook|silk/i.test(userAgent) || 
+                        (isAndroid && userAgent.indexOf('mobile') === -1);
+        return isTablet || isIPad;
+    }
+    
+    // Function to toggle audio state with enhanced tablet support
     function toggleAudio() {
         if (audioMuted) {
-            // Unmute
-            startAudio(); // Ensure audio is started
-            shoreAudio.volume = audioVolume;
-            shoreAudio.muted = false;
-            audioBtn.innerHTML = '🔊 Shore Audio';
-            audioBtn.style.backgroundColor = '#17a2b8';
-            audioMuted = false;
+            // Unmute with enhanced error handling
+            initializeAudioContext();
+            
+            // Ensure audio is properly started before unmuting
+            if (!audioStarted) {
+                const playPromise = shoreAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        audioStarted = true;
+                        shoreAudio.volume = audioVolume;
+                        shoreAudio.muted = false;
+                        audioBtn.innerHTML = '🔊 Shore Audio';
+                        audioBtn.style.backgroundColor = '#17a2b8';
+                        audioMuted = false;
+                        console.log('Audio unmuted successfully');
+                    }).catch(err => {
+                        console.error('Failed to start audio:', err);
+                        // Show error to user
+                        audioBtn.innerHTML = '❌ Audio Error';
+                        audioBtn.style.backgroundColor = '#dc3545';
+                        setTimeout(() => {
+                            audioBtn.innerHTML = '🔇 Shore Audio';
+                            audioBtn.style.backgroundColor = '#6c757d';
+                        }, 2000);
+                    });
+                } else {
+                    // Fallback
+                    audioStarted = true;
+                    shoreAudio.volume = audioVolume;
+                    shoreAudio.muted = false;
+                    audioBtn.innerHTML = '🔊 Shore Audio';
+                    audioBtn.style.backgroundColor = '#17a2b8';
+                    audioMuted = false;
+                }
+            } else {
+                // Audio already started, just unmute
+                shoreAudio.volume = audioVolume;
+                shoreAudio.muted = false;
+                audioBtn.innerHTML = '🔊 Shore Audio';
+                audioBtn.style.backgroundColor = '#17a2b8';
+                audioMuted = false;
+            }
         } else {
             // Mute
             shoreAudio.muted = true;
@@ -459,13 +562,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    audioBtn.addEventListener('click', toggleAudio);
+    // Enhanced audio button click handler with tablet support
+    audioBtn.addEventListener('click', (e) => {
+        // Ensure user interaction is captured for tablets
+        initializeAudioContext();
+        toggleAudio();
+    });
+    
+    // Also handle touch events specifically for tablets
+    audioBtn.addEventListener('touchend', (e) => {
+        e.preventDefault(); // Prevent double-firing with click
+        initializeAudioContext();
+        toggleAudio();
+    });
 
     // Keyboard shortcut for audio toggle (spacebar)
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !e.target.matches('button, input, textarea')) {
             e.preventDefault();
             audioBtn.click();
+        }
+    });
+    
+    // Additional tablet-specific audio handling
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && audioStarted && !audioMuted) {
+            // Resume audio when page becomes visible (tablets might suspend audio)
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('Audio context resumed after visibility change');
+                    if (shoreAudio.paused) {
+                        shoreAudio.play().catch(err => {
+                            console.log('Failed to resume audio playback:', err);
+                        });
+                    }
+                });
+            }
         }
     });
 
