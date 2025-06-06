@@ -92,6 +92,34 @@
       .fullscreen-mode .hover-trigger {
         pointer-events: auto;
       }
+
+      /* Android fullscreen enhancements */
+      @media screen and (max-width: 1024px) and (orientation: landscape) {
+        .fullscreen-mode {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 9999;
+          background: black;
+        }
+        
+        .fullscreen-mode .grid-container {
+          width: 100vw !important;
+          height: 100vh !important;
+        }
+      }
+
+      /* Hide address bar on mobile browsers */
+      .fullscreen-mode body {
+        overflow: hidden;
+      }
+
+      /* Ensure proper touch handling in fullscreen */
+      .fullscreen-mode canvas {
+        touch-action: none;
+      }
     </style>
   </head>
   <body>

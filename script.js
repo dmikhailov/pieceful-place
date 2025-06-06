@@ -111,6 +111,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize grid with dynamic sizing
     recreateGrid();
     
+    // Global mouse and touch event handlers for drag and drop
+    document.addEventListener('mousemove', (e) => handleDrag(e));
+    document.addEventListener('mouseup', (e) => endDrag(e));
+    
+    document.addEventListener('touchmove', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleDrag(touch);
+        }
+    });
+    
+    document.addEventListener('touchend', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+            endDrag(e);
+        }
+    });
+    
     // Handle window resize to recalculate grid size
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -129,25 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupDragAndDrop(canvas, canvasIndex) {
         // Mouse events
         canvas.addEventListener('mousedown', (e) => startDrag(e, canvasIndex));
-        document.addEventListener('mousemove', (e) => handleDrag(e));
-        document.addEventListener('mouseup', (e) => endDrag(e));
         
-        // Touch events for mobile
+        // Touch events for mobile - only on the canvas itself
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
             startDrag(touch, canvasIndex);
-        });
-        document.addEventListener('touchmove', (e) => {
-            if (dragState.isDragging) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                handleDrag(touch);
-            }
-        });
-        document.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            endDrag(e);
         });
     }
 
@@ -256,23 +262,52 @@ document.addEventListener('DOMContentLoaded', () => {
         checkPuzzleSolved();
     });
 
-    // Fullscreen functionality
-    fullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                console.error(`Error attempting to enable fullscreen: ${err.message}`);
-            });
-        } else {
-            document.exitFullscreen();
-        }
-    });
+    // Cross-browser fullscreen functionality with Android tablet support
+    function isFullscreen() {
+        return !!(document.fullscreenElement ||
+                  document.webkitFullscreenElement ||
+                  document.mozFullScreenElement ||
+                  document.msFullscreenElement);
+    }
 
-    // Update fullscreen button text when fullscreen state changes
-    document.addEventListener('fullscreenchange', () => {
-        fullscreenBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
+    function requestFullscreen(element) {
+        if (element.requestFullscreen) {
+            return element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+            return element.webkitRequestFullscreen();
+        } else if (element.webkitRequestFullScreen) {
+            return element.webkitRequestFullScreen();
+        } else if (element.mozRequestFullScreen) {
+            return element.mozRequestFullScreen();
+        } else if (element.msRequestFullscreen) {
+            return element.msRequestFullscreen();
+        } else {
+            return Promise.reject(new Error('Fullscreen API not supported'));
+        }
+    }
+
+    function exitFullscreen() {
+        if (document.exitFullscreen) {
+            return document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            return document.webkitExitFullscreen();
+        } else if (document.webkitCancelFullScreen) {
+            return document.webkitCancelFullScreen();
+        } else if (document.mozCancelFullScreen) {
+            return document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+            return document.msExitFullscreen();
+        } else {
+            return Promise.reject(new Error('Exit fullscreen API not supported'));
+        }
+    }
+
+    function handleFullscreenChange() {
+        const isInFullscreen = isFullscreen();
+        fullscreenBtn.textContent = isInFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
         
         // Add or remove fullscreen mode class
-        if (document.fullscreenElement) {
+        if (isInFullscreen) {
             document.body.classList.add('fullscreen-mode');
             setupFullscreenHover();
             // Auto-enable audio when entering fullscreen
@@ -287,7 +322,99 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleAudio();
             }
         }
+    }
+
+    fullscreenBtn.addEventListener('click', () => {
+        if (!isFullscreen()) {
+            requestFullscreen(document.documentElement).catch(err => {
+                console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                // Fallback for Android - try viewport meta manipulation
+                if (/Android/i.test(navigator.userAgent)) {
+                    console.log('Trying Android fallback fullscreen method...');
+                    const viewport = document.querySelector('meta[name=viewport]');
+                    if (viewport) {
+                        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui');
+                    }
+                    // Simulate fullscreen mode
+                    document.body.classList.add('fullscreen-mode');
+                    setupFullscreenHover();
+                    fullscreenBtn.textContent = 'Exit Fullscreen';
+                    optimizeForAndroid();
+                    if (audioMuted) {
+                        toggleAudio();
+                    }
+                }
+            });
+        } else {
+            exitFullscreen().catch(err => {
+                console.error(`Error attempting to exit fullscreen: ${err.message}`);
+                // Handle fallback exit
+                if (document.body.classList.contains('fullscreen-mode')) {
+                    const viewport = document.querySelector('meta[name=viewport]');
+                    if (viewport) {
+                        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+                    }
+                    document.body.classList.remove('fullscreen-mode', 'show-controls');
+                    cleanupFullscreenHover();
+                    fullscreenBtn.textContent = 'Fullscreen';
+                    if (!audioMuted) {
+                        toggleAudio();
+                    }
+                }
+            });
+        }
     });
+
+    // Listen for all possible fullscreen change events
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    // Additional Android tablet optimizations
+    function optimizeForAndroid() {
+        // Request orientation lock for tablets if supported
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(err => {
+                console.log('Orientation lock not supported or denied:', err);
+            });
+        }
+        
+        // Hide system UI on Android when in fullscreen
+        if (window.navigator.standalone === false && /Android/i.test(navigator.userAgent)) {
+            // Try to hide status bar and navigation bar
+            setTimeout(() => {
+                window.scrollTo(0, 1);
+            }, 100);
+        }
+    }
+
+    // Detect when device orientation changes and handle fullscreen
+    window.addEventListener('orientationchange', () => {
+        if (isFullscreen() || document.body.classList.contains('fullscreen-mode')) {
+            setTimeout(() => {
+                optimizeForAndroid();
+                // Recalculate grid if needed
+                const newGridSize = calculateOptimalGridSize();
+                if (newGridSize.rows !== gridSize.rows || newGridSize.cols !== gridSize.cols) {
+                    recreateGrid();
+                }
+            }, 500); // Delay to allow orientation change to complete
+        }
+    });
+
+    // Prevent zoom on double tap for Android tablets (only on canvas elements, not buttons)
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function (event) {
+        // Only prevent double-tap zoom on canvas elements, not on buttons
+        if (event.target.tagName === 'CANVAS') {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }
+    }, false);
 
     // Shore audio control functionality
     let audioMuted = true; // Start muted by default
