@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioBtn = document.getElementById('audioBtn');
     const shoreAudio = document.getElementById('shoreAudio');
     const hoverTrigger = document.getElementById('hoverTrigger');
+
+    let tileWidth, tileHeight, videoOffsetX, videoOffsetY;
     
     // Dynamic grid sizing based on screen resolution
     let gridSize = calculateOptimalGridSize();
@@ -666,7 +668,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Wait for video to be ready
     video.addEventListener('loadedmetadata', () => {
-        // Set canvas sizes and pre-calculate dimensions
+        // Check if video dimensions actually changed before calculating
+        if (video.videoWidth !== prevVideoWidth || video.videoHeight !== prevVideoHeight) {
+            prevVideoWidth = video.videoWidth;
+            prevVideoHeight = video.videoHeight;
+            calculateDimensions();
+        }
+        
+        // Set canvas sizes
         const srcWidth = video.videoWidth / gridSize.cols;
         const srcHeight = video.videoHeight / gridSize.rows;
         
@@ -682,39 +691,74 @@ document.addEventListener('DOMContentLoaded', () => {
         requestAnimationFrame(draw);
     });
 
+    // Track previous dimensions to detect changes
+    let prevVideoWidth = 0;
+    let prevVideoHeight = 0;
+    let prevWindowWidth = window.innerWidth;
+    let prevWindowHeight = window.innerHeight;
+
+    // Handle window resize
+    let dimensionResizeTimeout;
+    window.addEventListener('resize', () => {
+        // Debounce resize events
+        clearTimeout(dimensionResizeTimeout);
+        dimensionResizeTimeout = setTimeout(() => {
+            const newWidth = window.innerWidth;
+            const newHeight = window.innerHeight;
+            if (newWidth !== prevWindowWidth || newHeight !== prevWindowHeight) {
+                prevWindowWidth = newWidth;
+                prevWindowHeight = newHeight;
+                calculateDimensions();
+            }
+        }, 250);
+    });
+
+    function calculateDimensions() {
+         // Get current page dimensions
+         const pageWidth = window.innerWidth;
+         const pageHeight = window.innerHeight;
+         const pageAspectRatio = pageWidth / pageHeight;
+         
+         // Get video dimensions
+         const videoWidth = video.videoWidth;
+         const videoHeight = video.videoHeight;
+         
+         // Skip calculation if video dimensions are not available yet
+         if (!videoWidth || !videoHeight) {
+             return;
+         }
+         
+         const videoAspectRatio = videoWidth / videoHeight;
+         
+         // Calculate which part of the video is visible for this page resolution
+         let visibleVideoWidth, visibleVideoHeight;
+         
+         if (videoAspectRatio > pageAspectRatio) {
+             // Video is wider than page - crop the sides of the video
+             visibleVideoHeight = videoHeight;
+             visibleVideoWidth = videoHeight * pageAspectRatio;
+             videoOffsetX = (videoWidth - visibleVideoWidth) / 2;
+             videoOffsetY = 0;
+         } else {
+             // Video is taller than page - crop the top/bottom of the video
+             visibleVideoWidth = videoWidth;
+             visibleVideoHeight = videoWidth / pageAspectRatio;
+             videoOffsetX = 0;
+             videoOffsetY = (videoHeight - visibleVideoHeight) / 2;
+         }
+         
+         // Calculate tile dimensions from the visible portion
+        tileWidth = visibleVideoWidth / gridSize.cols;
+        tileHeight = visibleVideoHeight / gridSize.rows;
+        
+        console.log(`Dimensions calculated: ${pageWidth}x${pageHeight}, video: ${videoWidth}x${videoHeight}, tiles: ${tileWidth.toFixed(1)}x${tileHeight.toFixed(1)}`);
+    }
+
+
     function draw() {
         if (video.paused || video.ended) return;
 
-        // Get current page dimensions
-        const pageWidth = window.innerWidth;
-        const pageHeight = window.innerHeight;
-        const pageAspectRatio = pageWidth / pageHeight;
-        
-        // Get video dimensions
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
-        const videoAspectRatio = videoWidth / videoHeight;
-        
-        // Calculate which part of the video is visible for this page resolution
-        let visibleVideoWidth, visibleVideoHeight, videoOffsetX, videoOffsetY;
-        
-        if (videoAspectRatio > pageAspectRatio) {
-            // Video is wider than page - crop the sides of the video
-            visibleVideoHeight = videoHeight;
-            visibleVideoWidth = videoHeight * pageAspectRatio;
-            videoOffsetX = (videoWidth - visibleVideoWidth) / 2;
-            videoOffsetY = 0;
-        } else {
-            // Video is taller than page - crop the top/bottom of the video
-            visibleVideoWidth = videoWidth;
-            visibleVideoHeight = videoWidth / pageAspectRatio;
-            videoOffsetX = 0;
-            videoOffsetY = (videoHeight - visibleVideoHeight) / 2;
-        }
-        
-        // Calculate tile dimensions from the visible portion
-        const tileWidth = visibleVideoWidth / gridSize.cols;
-        const tileHeight = visibleVideoHeight / gridSize.rows;
+        // const startTime = performance.now();
 
         // Draw each canvas based on the tile mapping
         for (let canvasIndex = 0; canvasIndex < canvases.length; canvasIndex++) {
@@ -737,6 +781,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 0, 0, canvas.width, canvas.height  // Fill entire canvas
             );
         }
+        // const endTime = performance.now();
+        // console.log(`${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}.${new Date().getMilliseconds().toString().padStart(3, '0')}: Dimension calculation block took: ${endTime - startTime} milliseconds`);
 
         requestAnimationFrame(draw);
     }
