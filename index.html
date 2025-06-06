@@ -1,121 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Video Canvas Grid</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            gap: 1px;
-            width: 100vw;
-            flex: 1;
-            padding: 1px;
-            box-sizing: border-box;
-            transition: gap 0.5s ease, padding 0.5s ease;
-        }
-        .grid-container.solved {
-            gap: 0;
-            padding: 0;
-        }
-        .canvas-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            /* box-shadow: 0 0 10px rgba(0,0,0,0.1); */
-            cursor: grab;
-            transition: transform 0.1s ease;
-        }
-        canvas.dragging {
-            cursor: grabbing;
-            opacity: 0.7;
-            z-index: 1000;
-            transform: scale(1.05);
-            transition: none;
-        }
-        #video {
-            display: none;
-        }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .grid-container {
+        display: grid;
+        gap: 1px;
+        width: 100vw;
+        flex: 1;
+        padding: 1px;
+        box-sizing: border-box;
+        transition: gap 0.5s ease, padding 0.5s ease;
+      }
+      .grid-container.solved {
+        gap: 0;
+        padding: 0;
+      }
+      .canvas-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        /* box-shadow: 0 0 10px rgba(0,0,0,0.1); */
+        cursor: grab;
+        transition: transform 0.1s ease;
+      }
+      canvas.dragging {
+        cursor: grabbing;
+        opacity: 0.7;
+        z-index: 1000;
+        transform: scale(1.05);
+        transition: none;
+      }
+      #video {
+        display: none;
+      }
 
-        .button-container {
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-        }
+      .button-container {
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        display: flex;
+        white-space: nowrap;
+      }
 
-        /* Hide button container in fullscreen mode by default */
-        .fullscreen-mode .button-container {
-            opacity: 0;
-            transform: translateX(-50%) translateY(100%);
-            pointer-events: none;
-        }
+      /* Hide button container in fullscreen mode by default */
+      .fullscreen-mode .button-container {
+        opacity: 0;
+        transform: translateX(-50%) translateY(100%);
+        pointer-events: none;
+      }
 
-        /* Show button container in fullscreen mode when hovering bottom area */
-        .fullscreen-mode.show-controls .button-container {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-            pointer-events: auto;
-        }
+      /* Show button container in fullscreen mode when hovering bottom area */
+      .fullscreen-mode.show-controls .button-container {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
+      }
 
-        /* Create an invisible hover area at the bottom of the screen for fullscreen mode */
-        .hover-trigger {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 80px; /* Height of the hover area */
-            z-index: 999;
-            pointer-events: none;
-        }
+      /* Create an invisible hover area at the bottom of the screen for fullscreen mode */
+      .hover-trigger {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 80px; /* Height of the hover area */
+        z-index: 999;
+        pointer-events: none;
+      }
 
-        .fullscreen-mode .hover-trigger {
-            pointer-events: auto;
-        }
+      .fullscreen-mode .hover-trigger {
+        pointer-events: auto;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <video id="video" src="video/demo.mp4" autoplay muted loop></video>
     <audio id="shoreAudio" src="audio/seashore.mp3" loop volume="1"></audio>
-    
+
     <div class="button-container">
-        <button id="shuffleBtn" style="padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">
-            Shuffle Tiles
-        </button>
-        <button id="fullscreenBtn" style="padding: 10px 20px; font-size: 16px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px;">
-            Fullscreen
-        </button>
-        <button id="audioBtn" style="padding: 10px 20px; font-size: 16px; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">
-            🔇 Shore Audio
-        </button>
+      <button
+        id="shuffleBtn"
+        style="
+          padding: 10px 20px;
+          font-size: 16px;
+          background-color: #007bff;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-right: 10px;
+        "
+      >
+        Shuffle Tiles
+      </button>
+      <button
+        id="fullscreenBtn"
+        style="
+          padding: 10px 20px;
+          font-size: 16px;
+          background-color: #28a745;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-right: 10px;
+        "
+      >
+        Fullscreen
+      </button>
+      <button
+        id="audioBtn"
+        style="
+          padding: 10px 20px;
+          font-size: 16px;
+          background-color: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+        "
+      >
+        🔇 Shore Audio
+      </button>
     </div>
-    
+
     <!-- Invisible hover area for fullscreen mode -->
     <div class="hover-trigger" id="hoverTrigger"></div>
-    
+
     <div class="grid-container" id="gridContainer">
-        <!-- Canvas elements will be created dynamically -->
+      <!-- Canvas elements will be created dynamically -->
     </div>
     <script src="script.js"></script>
-</body>
-</html> 
+  </body>
+</html>

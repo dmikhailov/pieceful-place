@@ -7,9 +7,89 @@ document.addEventListener('DOMContentLoaded', () => {
     const audioBtn = document.getElementById('audioBtn');
     const shoreAudio = document.getElementById('shoreAudio');
     const hoverTrigger = document.getElementById('hoverTrigger');
-    const gridSize = { rows: 3, cols: 5 };
+    
+    // Dynamic grid sizing based on screen resolution
+    let gridSize = calculateOptimalGridSize();
     const canvases = [];
     const contexts = [];
+    
+    // Function to calculate optimal grid size based on screen dimensions
+    function calculateOptimalGridSize() {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        
+        // Target piece size constraints
+        const minPieceSize = 200;
+        const maxPieceSize = 300;
+        
+        // Calculate how many pieces can fit horizontally and vertically
+        const maxCols = Math.floor(screenWidth / minPieceSize);
+        const minCols = Math.ceil(screenWidth / maxPieceSize);
+        const maxRows = Math.floor(screenHeight / minPieceSize);
+        const minRows = Math.ceil(screenHeight / maxPieceSize);
+        
+        // Choose optimal number of columns and rows
+        // Prefer more pieces for better gameplay, but within size constraints
+        const cols = Math.max(3, Math.min(maxCols, Math.max(minCols, 5))); // Default to 5 cols if possible
+        const rows = Math.max(2, Math.min(maxRows, Math.max(minRows, 3))); // Default to 3 rows if possible
+        
+        // Verify the actual piece sizes will be within range
+        const actualPieceWidth = screenWidth / cols;
+        const actualPieceHeight = screenHeight / rows;
+        
+        console.log(`Screen: ${screenWidth}x${screenHeight}, Grid: ${cols}x${rows}, Piece size: ${actualPieceWidth.toFixed(1)}x${actualPieceHeight.toFixed(1)}px`);
+        
+        return { rows, cols };
+    }
+    
+    // Function to recreate the entire grid with new dimensions
+    function recreateGrid() {
+        // Clear existing canvases
+        gridContainer.innerHTML = '';
+        canvases.length = 0;
+        contexts.length = 0;
+        
+        // Recalculate grid size
+        gridSize = calculateOptimalGridSize();
+        
+        // Update CSS grid template
+        gridContainer.style.gridTemplateColumns = `repeat(${gridSize.cols}, 1fr)`;
+        gridContainer.style.gridTemplateRows = `repeat(${gridSize.rows}, 1fr)`;
+        
+        // Reset tile mapping for new grid size
+        tileMapping = [];
+        hasBeenShuffled = false;
+        
+        // Create new canvas elements
+        for (let i = 0; i < gridSize.rows * gridSize.cols; i++) {
+            const container = document.createElement('div');
+            container.className = 'canvas-container';
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            gridContainer.appendChild(container);
+            
+            canvases.push(canvas);
+            contexts.push(canvas.getContext('2d'));
+            tileMapping.push(i); // Initially, each canvas displays its corresponding grid position
+            
+            // Add drag and drop event listeners
+            setupDragAndDrop(canvas, i);
+        }
+        
+        // If video is ready, set canvas sizes
+        if (video.videoWidth && video.videoHeight) {
+            const srcWidth = video.videoWidth / gridSize.cols;
+            const srcHeight = video.videoHeight / gridSize.rows;
+            
+            canvases.forEach(canvas => {
+                canvas.width = srcWidth;
+                canvas.height = srcHeight;
+            });
+        }
+        
+        // Remove solved state when recreating grid
+        gridContainer.classList.remove('solved');
+    }
     
     // Create mapping array for shuffle functionality
     // Each index represents a canvas, value represents which grid position it displays
@@ -28,21 +108,22 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetY: 0
     };
 
-    // Create canvas elements
-    for (let i = 0; i < gridSize.rows * gridSize.cols; i++) {
-        const container = document.createElement('div');
-        container.className = 'canvas-container';
-        const canvas = document.createElement('canvas');
-        container.appendChild(canvas);
-        gridContainer.appendChild(container);
-        
-        canvases.push(canvas);
-        contexts.push(canvas.getContext('2d'));
-        tileMapping.push(i); // Initially, each canvas displays its corresponding grid position
-        
-        // Add drag and drop event listeners
-        setupDragAndDrop(canvas, i);
-    }
+    // Initialize grid with dynamic sizing
+    recreateGrid();
+    
+    // Handle window resize to recalculate grid size
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        // Debounce resize events to avoid excessive recalculations
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const newGridSize = calculateOptimalGridSize();
+            // Only recreate grid if dimensions actually changed
+            if (newGridSize.rows !== gridSize.rows || newGridSize.cols !== gridSize.cols) {
+                recreateGrid();
+            }
+        }, 250);
+    });
 
     // Setup drag and drop for a canvas
     function setupDragAndDrop(canvas, canvasIndex) {
