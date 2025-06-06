@@ -123,14 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const touch = e.touches[0];
             handleDrag(touch);
         }
-    });
+    }, { passive: false });
     
     document.addEventListener('touchend', (e) => {
         if (dragState.isDragging) {
             e.preventDefault();
-            endDrag(e);
+            // Use changedTouches for touchend event
+            const touch = e.changedTouches[0];
+            endDrag(touch);
         }
-    });
+    }, { passive: false });
     
     // Handle window resize to recalculate grid size
     let resizeTimeout;
@@ -154,9 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Touch events for mobile - only on the canvas itself
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const touch = e.touches[0];
             startDrag(touch, canvasIndex);
-        });
+        }, { passive: false });
+        
+        // Improve touch handling for tablets
+        canvas.style.touchAction = 'none';
     }
 
     // Start dragging
@@ -172,6 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add dragging class for visual feedback
         canvases[canvasIndex].classList.add('dragging');
+        
+        // Add haptic feedback for mobile devices
+        if (navigator.vibrate && isTabletDevice()) {
+            navigator.vibrate(50);
+        }
     }
 
     // Handle dragging
@@ -202,6 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dropTarget !== -1 && dropTarget !== dragState.draggedCanvasIndex) {
             // Swap tiles
             swapTiles(dragState.draggedCanvasIndex, dropTarget);
+            console.log(`Swapped tiles ${dragState.draggedCanvasIndex} and ${dropTarget}`);
+        } else {
+            console.log(`No valid drop target found at ${event.clientX}, ${event.clientY}`);
         }
         
         // Reset drag state
@@ -227,6 +241,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const temp = tileMapping[index1];
         tileMapping[index1] = tileMapping[index2];
         tileMapping[index2] = temp;
+        
+        // Add haptic feedback for successful swap on mobile devices
+        if (navigator.vibrate && isTabletDevice()) {
+            navigator.vibrate([30, 50, 30]);
+        }
         
         // Check if puzzle is solved after swap
         checkPuzzleSolved();
@@ -365,8 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-
     // Listen for all possible fullscreen change events
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -406,10 +423,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Prevent zoom on double tap for Android tablets (only on canvas elements, not buttons)
+    // This is now handled by touch-action: none on canvas elements
     let lastTouchEnd = 0;
     document.addEventListener('touchend', function (event) {
         // Only prevent double-tap zoom on canvas elements, not on buttons
-        if (event.target.tagName === 'CANVAS') {
+        // Skip if this is part of a drag operation
+        if (event.target.tagName === 'CANVAS' && !dragState.isDragging) {
             const now = (new Date()).getTime();
             if (now - lastTouchEnd <= 300) {
                 event.preventDefault();
