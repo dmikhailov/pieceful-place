@@ -2,8 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const video = document.getElementById('video');
     video.play();
     const gridContainer = document.getElementById('gridContainer');
-    const shuffleBtn = document.getElementById('shuffleBtn');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const playBtn = document.getElementById('playBtn');
     const audioBtn = document.getElementById('audioBtn');
     const shoreAudio = document.getElementById('shoreAudio');
     const hoverTrigger = document.getElementById('hoverTrigger');
@@ -97,6 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Track whether the puzzle has been shuffled (to enable solved state detection)
     let hasBeenShuffled = false;
+    
+    // Track if this is the first play or subsequent shuffles
+    let isFirstPlay = true;
     
     // Drag and drop state
     let dragState = {
@@ -254,12 +256,46 @@ document.addEventListener('DOMContentLoaded', () => {
         return isSolved;
     }
 
-    // Shuffle button event listener
-    shuffleBtn.addEventListener('click', () => {
-        tileMapping = shuffleArray(tileMapping);
-        hasBeenShuffled = true; // Mark that puzzle has been shuffled
-        // Check puzzle state after shuffle
-        checkPuzzleSolved();
+    // Play/Shuffle button event listener
+    playBtn.addEventListener('click', () => {
+        if (isFirstPlay) {
+            // First click: shuffle tiles and go fullscreen
+            tileMapping = shuffleArray(tileMapping);
+            hasBeenShuffled = true; // Mark that puzzle has been shuffled
+            checkPuzzleSolved();
+            
+            // Switch to fullscreen
+            if (!isFullscreen()) {
+                requestFullscreen(document.documentElement).catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                    // Fallback for Android - try viewport meta manipulation
+                    if (/Android/i.test(navigator.userAgent)) {
+                        console.log('Trying Android fallback fullscreen method...');
+                        const viewport = document.querySelector('meta[name=viewport]');
+                        if (viewport) {
+                            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui');
+                        }
+                        // Simulate fullscreen mode
+                        document.body.classList.add('fullscreen-mode');
+                        setupFullscreenHover();
+                        optimizeForAndroid();
+                        if (audioMuted) {
+                            initializeAudioContext();
+                            setTimeout(() => toggleAudio(), 100); // Small delay for Android tablet compatibility
+                        }
+                    }
+                });
+            }
+            
+            // Change button text and mark as no longer first play
+            playBtn.textContent = 'Shuffle';
+            isFirstPlay = false;
+        } else {
+            // Subsequent clicks: just shuffle tiles
+            tileMapping = shuffleArray(tileMapping);
+            hasBeenShuffled = true;
+            checkPuzzleSolved();
+        }
     });
 
     // Cross-browser fullscreen functionality with Android tablet support
@@ -304,7 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFullscreenChange() {
         const isInFullscreen = isFullscreen();
-        fullscreenBtn.textContent = isInFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
         
         // Add or remove fullscreen mode class
         if (isInFullscreen) {
@@ -322,50 +357,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!audioMuted) {
                 toggleAudio();
             }
+            // Reset play button when exiting fullscreen
+            if (!isFirstPlay) {
+                playBtn.textContent = 'Play';
+                isFirstPlay = true;
+            }
         }
     }
 
-    fullscreenBtn.addEventListener('click', () => {
-        if (!isFullscreen()) {
-            requestFullscreen(document.documentElement).catch(err => {
-                console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                // Fallback for Android - try viewport meta manipulation
-                if (/Android/i.test(navigator.userAgent)) {
-                    console.log('Trying Android fallback fullscreen method...');
-                    const viewport = document.querySelector('meta[name=viewport]');
-                    if (viewport) {
-                        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui');
-                    }
-                    // Simulate fullscreen mode
-                    document.body.classList.add('fullscreen-mode');
-                    setupFullscreenHover();
-                    fullscreenBtn.textContent = 'Exit Fullscreen';
-                    optimizeForAndroid();
-                    if (audioMuted) {
-                        initializeAudioContext();
-                        setTimeout(() => toggleAudio(), 100); // Small delay for Android tablet compatibility
-                    }
-                }
-            });
-        } else {
-            exitFullscreen().catch(err => {
-                console.error(`Error attempting to exit fullscreen: ${err.message}`);
-                // Handle fallback exit
-                if (document.body.classList.contains('fullscreen-mode')) {
-                    const viewport = document.querySelector('meta[name=viewport]');
-                    if (viewport) {
-                        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
-                    }
-                    document.body.classList.remove('fullscreen-mode', 'show-controls');
-                    cleanupFullscreenHover();
-                    fullscreenBtn.textContent = 'Fullscreen';
-                    if (!audioMuted) {
-                        toggleAudio();
-                    }
-                }
-            });
-        }
-    });
+
 
     // Listen for all possible fullscreen change events
     document.addEventListener('fullscreenchange', handleFullscreenChange);
